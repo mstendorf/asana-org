@@ -1,0 +1,5 @@
+* asana-org
+  A simple tool to run as a cron job, or invoked from cli.
+  Writes tasks from asana to your defined org file.
+
+  Tasks are split in sections based on project name.
