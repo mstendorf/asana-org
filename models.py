@@ -79,12 +79,32 @@ class Orgtopia:
         """
         self.base.save_to_file(self.path)
 
+    def get_section(self, section):
+        """
+        Gets an asana section, or creates one if exists
+        """
+        try:
+            return self.sections[section]
+        except:
+            sect = PyOrgMode.OrgNode.Element()
+            sect.heading = section
+            sect.level = 0
+            self.base.root.append_clean(sect)
+            return sect
+
     def get_task(self, section, task):
         """
         Gets an asana task from an orgmode section
         """
         try:
-            return self.sections[section][task.id]
+            sect = self.sections[section]
+            for tsk in sect.content:
+                print(tsk.heading)
+                for p in tsk.content:
+                    if type(p) == PyOrgMode.OrgDrawer.Element:
+                        if p.content[0].value == task.id:
+                            return tsk
+
         except:
             return None
 
