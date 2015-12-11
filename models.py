@@ -33,6 +33,7 @@ class Asana_workspace:
                                                                "due_on",
                                                                "tags",
                                                                "assignee",
+                                                               "assignee.name",
                                                                "completed"]})
             for task in tasks:
                 self.tasks[task["id"]] = self.Task(client, task, 1)
@@ -57,6 +58,7 @@ class Asana_workspace:
                                                               "due_on",
                                                               "tags",
                                                               "assignee",
+                                                              "assignee.name",
                                                               "completed"]})
                 # recursive nesting of elements.
                 for subtask in tasks:
@@ -71,6 +73,7 @@ class Orgtopia:
         self.base.load_from_file(path)
         self.sections = {}
         for section in self.base.root.content:
+            print("Adding %s as section in org" % section.heading)
             self.sections[section.heading] = section
 
     def write(self):
@@ -89,7 +92,7 @@ class Orgtopia:
             sect = PyOrgMode.OrgNode.Element()
             sect.heading = section
             sect.level = 0
-            self.sections.append(sect)
+            self.sections[sect.heading] = sect
             self.base.root.append_clean(sect)
             return sect
 
@@ -113,23 +116,48 @@ class Orgtopia:
         """
         Adds an asana task from an orgmode section
         """
+        import datetime
         todo = PyOrgMode.OrgNode.Element()
         todo.heading = task.name
         todo.level = task.level
         todo.todo = "DONE" if task.completed else "TODO"
         if task.due_date:
             _sched = PyOrgMode.OrgSchedule()
-            _sched._append(todo, _sched.Element(deadline=task.due_on))
+            print(task.due_date)
+            _sched._append(todo, _sched.Element(deadline=datetime.datetime.strptime(task.due_date, "%Y-%m-%d").strftime("<%Y-%m-%d %a>")))
         # add task id as a property for later retrieval
         _props = PyOrgMode.OrgDrawer.Element("PROPERTIES")
-        _props.append(PyOrgMode.OrgDrawer.Property("TASK_ID", task.id))
-        if task.assignee:
+        _props.append(PyOrgMode.OrgDrawer.Property("TASK_ID", str(task.id)))
+        if task.assignee is not None:
+            print(task.assignee)
             _props.append(PyOrgMode.OrgDrawer.Property("ASSIGNEE",
                                                        task.assignee["name"]))
         todo.append_clean(_props)
-        try:
-            sect = self.sections[section]
-            print("Got section")
-            sect.append_clean(todo)
-        except:
-            exit("Can't add to a non existing section!")
+        for l in task.description.split("\n"):
+            todo.content.append(l)
+
+        # now append the sub tasks.
+        print(type(task.subtasks))
+        for t in task.subtasks.values():
+            sub = PyOrgMode.OrgNode.Element()
+            sub.heading = t.name
+            sub.level = t.level
+            sub.todo = "DONE" if t.completed else "TODO"
+            if t.due_date:
+                _sched = PyOrgMode.OrgSchedule()
+                _sched._append(todo, _sched.Element(deadline=datetime.datetime.strptime(t.due_date, "%Y-%m-%d").strftime("<%Y-%m-%d %a>")))
+            _subprops = PyOrgMode.OrgDrawer.Element("PROPERTIES")
+            _subprops.append(PyOrgMode.OrgDrawer.Property("TASK_ID", str(t.id)))
+            if t.assignee is not None:
+                print(t.assignee)
+                _subprops.append(PyOrgMode.OrgDrawer.Property("ASSIGNEE",
+                                                              t.assignee["name"]))
+            sub.append_clean(_props)
+            for l in t.description.split("\n"):
+                sub.content.append(l)
+
+            # now append subtask to parent task
+            todo.content.append(sub)
+        sect = self.sections[section]
+        print("Got section")
+        sect.content.append(todo)

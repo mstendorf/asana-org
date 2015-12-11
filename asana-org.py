@@ -1,9 +1,9 @@
 from models import *
 import asana as asana
 
-org_file = ""
-asana_token = ''
-workspace_id = -1
+org_file = "/home/mas/.emacs.d/org/Agenda/plan.org"
+asana_token = '0/450e599568f5c546eaf1c12d23068f0a'
+workspace_id = 63612864747810
 
 
 # gather tasks from asana - SLOW due to api design, or the python module i use.
@@ -19,7 +19,7 @@ for project in ass.projects.values():
     # create or fetch section.
     sect = org.get_section(project.name)
     for task in project.tasks.values():
-        print("Gonna add %s to %s", (task.name, project.name))
+        print("Gonna add %s to %s" % (task.name, project.name))
         org.add_task(project.name, task)
 
 org.write()
