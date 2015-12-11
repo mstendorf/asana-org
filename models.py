@@ -89,6 +89,7 @@ class Orgtopia:
             sect = PyOrgMode.OrgNode.Element()
             sect.heading = section
             sect.level = 0
+            self.sections.append(sect)
             self.base.root.append_clean(sect)
             return sect
 
@@ -126,4 +127,9 @@ class Orgtopia:
             _props.append(PyOrgMode.OrgDrawer.Property("ASSIGNEE",
                                                        task.assignee["name"]))
         todo.append_clean(_props)
-        self.sections.append_clean(todo)
+        try:
+            sect = self.sections[section]
+            print("Got section")
+            sect.append_clean(todo)
+        except:
+            exit("Can't add to a non existing section!")
