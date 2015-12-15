@@ -3,7 +3,7 @@ import asana as asana
 
 class Asana_workspace:
 
-    def __init__(self, token, workspace_id):
+    def __init__(self, token, workspace_id, interested_in):
         self.client = asana.Client.access_token(token)
         self.me = self.client.users.me()
         for workspace in self.me["workspaces"]:
@@ -16,7 +16,8 @@ class Asana_workspace:
             projects = self.client.projects.find_all({"workspace":
                                                       workspace['id']})
             for project in projects:
-                self.projects[project["name"]] = self.Project(self.client, project)
+                if project["id"] in interested_in:
+                    self.projects[project["name"]] = self.Project(self.client, project)
 
         else:
             exit("Workspace not found!")
@@ -37,8 +38,6 @@ class Asana_workspace:
                                                                "completed"]})
             for task in tasks:
                 self.tasks[task["id"]] = self.Task(client, task, 1)
-
-
 
         class Task:
             def __init__(self, client, tsk, level):
@@ -71,10 +70,6 @@ class Orgtopia:
         self.path = path
         self.base = PyOrgMode.OrgDataStructure()
         self.base.load_from_file(path)
-        self.sections = {}
-        for section in self.base.root.content:
-            print("Adding %s as section in org" % section.heading)
-            self.sections[section.heading] = section
 
     def write(self):
         """
@@ -82,40 +77,7 @@ class Orgtopia:
         """
         self.base.save_to_file(self.path)
 
-    def get_section(self, section):
-        """
-        Gets an asana section, or creates one if exists
-        """
-        try:
-            return self.sections[section]
-        except:
-            sect = PyOrgMode.OrgNode.Element()
-            sect.heading = section
-            sect.level = 0
-            self.sections[sect.heading] = sect
-            self.base.root.append_clean(sect)
-            return sect
-
-    def get_task(self, section, task):
-        """
-        Gets an asana task from an orgmode section
-        """
-        try:
-            sect = self.sections[section]
-            for tsk in sect.content:
-                print(tsk.heading)
-                for p in tsk.content:
-                    if type(p) == PyOrgMode.OrgDrawer.Element:
-                        if p.content[0].value == task.id:
-                            return tsk
-
-        except:
-            return None
-
-    def add_task(self, section, task):
-        """
-        Adds an asana task from an orgmode section
-        """
+    def task_to_org(self, task):
         import datetime
         todo = PyOrgMode.OrgNode.Element()
         todo.heading = task.name
@@ -134,30 +96,42 @@ class Orgtopia:
                                                        task.assignee["name"]))
         todo.append_clean(_props)
         for l in task.description.split("\n"):
-            todo.content.append(l)
+            todo.content.append((task.level*"\t") + l)
 
-        # now append the sub tasks.
-        print(type(task.subtasks))
-        for t in task.subtasks.values():
-            sub = PyOrgMode.OrgNode.Element()
-            sub.heading = t.name
-            sub.level = t.level
-            sub.todo = "DONE" if t.completed else "TODO"
-            if t.due_date:
-                _sched = PyOrgMode.OrgSchedule()
-                _sched._append(todo, _sched.Element(deadline=datetime.datetime.strptime(t.due_date, "%Y-%m-%d").strftime("<%Y-%m-%d %a>")))
-            _subprops = PyOrgMode.OrgDrawer.Element("PROPERTIES")
-            _subprops.append(PyOrgMode.OrgDrawer.Property("TASK_ID", str(t.id)))
-            if t.assignee is not None:
-                print(t.assignee)
-                _subprops.append(PyOrgMode.OrgDrawer.Property("ASSIGNEE",
-                                                              t.assignee["name"]))
-            sub.append_clean(_props)
-            for l in t.description.split("\n"):
-                sub.content.append(l)
+        # loop this code to add subtasks nested.
+        for tsk in task.subtasks.values():
+            self.add_task(todo, tsk)
 
-            # now append subtask to parent task
-            todo.content.append(sub)
-        sect = self.sections[section]
-        print("Got section")
-        sect.content.append(todo)
+        return todo
+
+    def get_task(self, section, task):
+        """
+        Gets an asana task from an orgmode section
+        """
+        try:
+            sect = self.sections[section]
+            for tsk in sect.content:
+                print(tsk.heading)
+                for p in tsk.content:
+                    if type(p) == PyOrgMode.OrgDrawer.Element:
+                        if p.content[0].value == task.id:
+                            return tsk
+
+        except:
+            return None
+
+    def add_task(self, parent, task):
+        """
+        Adds an asana task from an orgmode section
+        """
+        todo = self.task_to_org(task)
+        if isinstance(parent, Asana_workspace.Project):
+            section = PyOrgMode.OrgNode.Element()
+            section.heading = task.name
+            section.level = 0
+            section.content.append(todo)
+            #print("Adding %s to root." % todo.heading)
+            self.base.root.append_clean(section)
+        else:
+            print(type(parent))
+            parent.content.append(todo)

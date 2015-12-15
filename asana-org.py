@@ -2,25 +2,24 @@ from models import *
 import asana as asana
 
 org_file = "/home/mas/.emacs.d/org/Agenda/plan.org"
-asana_token = '0/450e599568f5c546eaf1c12d23068f0a'
-workspace_id = 63612864747810
-
+asana_token = ''
+workspace_id = 0
+interested_in = [1,2,3]
 
 # gather tasks from asana - SLOW due to api design, or the python module i use.
 # did not care to check.
-ass = Asana_workspace(token=asana_token, workspace_id=workspace_id)
+ass = Asana_workspace(token=asana_token, workspace_id=workspace_id,
+                      interested_in=interested_in)
 # parse the org file.
 org = Orgtopia(path=org_file)
 
 
 for project in ass.projects.values():
-    print(type(project))
     print(project)
-    # create or fetch section.
-    sect = org.get_section(project.name)
     for task in project.tasks.values():
-        print("Gonna add %s to %s" % (task.name, project.name))
-        org.add_task(project.name, task)
+        if not task.completed and len(task.name) > 0: # stupidity checks
+            print("Gonna add %s to %s" % (task.name, project.name))
+            org.add_task(project, task)
 
 org.write()
 
