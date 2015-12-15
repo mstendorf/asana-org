@@ -96,12 +96,11 @@ class Orgtopia:
                                                        task.assignee["name"]))
         todo.append_clean(_props)
         for l in task.description.split("\n"):
-            todo.content.append((task.level*"\t") + l)
+            todo.content.append(l + "\n")
 
         # loop this code to add subtasks nested.
         for tsk in task.subtasks.values():
-            self.add_task(todo, tsk)
-
+            todo.content.append(self.task_to_org(tsk))
         return todo
 
     def get_task(self, section, task):
@@ -120,18 +119,25 @@ class Orgtopia:
         except:
             return None
 
-    def add_task(self, parent, task):
+    def get_section(self, name):
         """
-        Adds an asana task from an orgmode section
+        Gets or creates a section or root org node.
         """
-        todo = self.task_to_org(task)
-        if isinstance(parent, Asana_workspace.Project):
-            section = PyOrgMode.OrgNode.Element()
-            section.heading = task.name
-            section.level = 0
-            section.content.append(todo)
-            #print("Adding %s to root." % todo.heading)
-            self.base.root.append_clean(section)
-        else:
-            print(type(parent))
-            parent.content.append(todo)
+
+        return sect
+
+    def process(self, asana):
+        """
+        Start processing the asana api.
+        """
+        for project in asana.projects.values():
+            print(project)
+            sect = PyOrgMode.OrgNode.Element()
+            sect.heading = project.name
+            sect.level = 0
+            for task in project.tasks.values():
+                if not task.completed and len(task.name) > 0:
+                    print("Gonna add %s to %s" % (task.name, sect.heading))
+                    sect.content.append(self.task_to_org(task))
+            # now append the section to root
+            self.base.root.append_clean(sect)
