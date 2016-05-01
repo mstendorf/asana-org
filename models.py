@@ -1,5 +1,6 @@
 from PyOrgMode import PyOrgMode
 import asana as asana
+import json
 
 class Asana_workspace:
 
@@ -14,7 +15,8 @@ class Asana_workspace:
             print("Workspace found")
             self.projects = {}
             projects = self.client.projects.find_all({"workspace":
-                                                      workspace['id']})
+                                                      workspace['id']},iterator_type=None)
+            print("Projects: " + json.dumps(projects, indent=2))
             for project in projects:
                 if project["id"] in interested_in:
                     self.projects[project["name"]] = self.Project(self.client, project)
@@ -29,13 +31,29 @@ class Asana_workspace:
             self.name = project["name"]
             self.tasks = {}
             tasks = client.tasks.find_all({"project": project['id'],
-                                                "opt_fields": ["notes", "name",
+                                                "opt_fields": ["notes",
+                                                               "name",
                                                                "completed_at",
                                                                "due_on",
                                                                "tags",
                                                                "assignee",
                                                                "assignee.name",
-                                                               "completed"]})
+                                                               "completed",
+                                                               "description",
+                                                               "comments",
+                                                               "subtasks+",
+                                                               "subtasks+.notes",
+                                                               "subtasks+.name",
+                                                               "subtasks+.completed_at",
+                                                               "subtasks+.due_on",
+                                                               "subtasks+.tags",
+                                                               "subtasks+.assignee",
+                                                               "subtasks+.assignee.name",
+                                                               "subtasks+.completed",
+                                                               "subtasks+.description",
+                                                               "subtasks+.comments"
+                                                ]},iterator_type=None)
+            print("Tasks: " + json.dumps(tasks, indent=2))
             for task in tasks:
                 self.tasks[task["id"]] = self.Task(client, task, 1)
 
@@ -51,14 +69,33 @@ class Asana_workspace:
                 self.subtasks = {}
                 self.due_date = tsk["due_on"]
                 self.assignee = tsk["assignee"]
-                tasks = client.tasks.subtasks(tsk["id"],
-                                              {"opt_fields": ["notes", "name",
-                                                              "completed_at",
-                                                              "due_on",
-                                                              "tags",
-                                                              "assignee",
-                                                              "assignee.name",
-                                                              "completed"]})
+                try:
+                    tasks = tsk["subtasks"]
+                except:
+                    tasks = client.tasks.subtasks(tsk["id"],
+                                                  {"opt_fields": ["notes",
+                                                                  "name",
+                                                                  "completed_at",
+                                                                  "due_on",
+                                                                  "tags",
+                                                                  "assignee",
+                                                                  "assignee.name",
+                                                                  "completed",
+                                                                  "description",
+                                                                  "comments",
+                                                                  "subtasks+",
+                                                                  "subtasks+.notes",
+                                                                  "subtasks+.name",
+                                                                  "subtasks+.completed_at",
+                                                                  "subtasks+.due_on",
+                                                                  "subtasks+.tags",
+                                                                  "subtasks+.assignee",
+                                                                  "subtasks+.assignee.name",
+                                                                  "subtasks+.completed",
+                                                                  "subtasks+.description",
+                                                                  "subtasks+.comments"
+                                                  ]},iterator_type=None)
+
                 # recursive nesting of elements.
                 for subtask in tasks:
                     self.subtasks[subtask["id"]] = self.__class__(client, subtask, level+1)
@@ -100,7 +137,7 @@ class Orgtopia:
 
         # loop this code to add subtasks nested.
         for tsk in task.subtasks.values():
-            todo.content.append(self.task_to_org(tsk))
+            todo.append_clean(self.task_to_org(tsk))
         return todo
 
     def get_task(self, section, task):
